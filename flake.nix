@@ -217,7 +217,7 @@
 
           lib = {
             mkDevShell =
-              args: pkgs.mkShell {
+              { providers, packages ? [] }: pkgs.mkShell {
                 buildInputs = lib.attrValues
                   (pkgs.callPackage ./nix/devshell.nix
                     {
@@ -225,7 +225,7 @@
                       nickel = inputs.nickel.packages.${system}.nickel-lang-cli;
                     inherit (self.packages.${system}) terraform;
                     }
-                    args) ++ [
+                    { inherit providers; }) ++ packages ++ [
                   inputs.nickel.packages.${system}.default
                   inputs.topiary.packages.${system}.default
                 ];
