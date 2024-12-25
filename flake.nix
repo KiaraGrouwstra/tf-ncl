@@ -34,9 +34,9 @@
 
           pkgs = import inputs.nixpkgs {
             localSystem = { inherit system; };
-            config.allowUnfreePredicate = pkg: builtins.elem (lib.getName pkg) [
-              "terraform"
-            ];
+            # config.allowUnfreePredicate = pkg: builtins.elem (lib.getName pkg) [
+            #   "terraform"
+            # ];
             overlays = [
               (import inputs.rust-overlay)
             ];
@@ -110,7 +110,31 @@
             };
           };
 
-          terraformProviders = pkgs.terraform-providers.actualProviders;
+          terraformProviders = let
+            terraform-providers = pkgs.terraform-providers.actualProviders;
+          in
+            lib.mapAttrs
+            (
+              _: provider:
+                if provider ? override
+                then
+                  # use opentofu plugin registry over terraform's
+                  provider.override (oldArgs: {
+                    provider-source-address =
+                      lib.replaceStrings ["https://registry.terraform.io/providers"] [
+                        "registry.opentofu.org"
+                      ]
+                      oldArgs.homepage;
+                  })
+                else provider
+            )
+            (
+              removeAttrs terraform-providers [
+                "override"
+                "overrideDerivation"
+                "recurseForDerivations"
+              ]
+            );
 
           release = pkgs.runCommand "release-tarball"
             {
@@ -173,7 +197,7 @@
 
           packages = {
             default = tf-ncl;
-            terraform = pkgs.terraform;
+            terraform = pkgs.opentofu;
             inherit tf-ncl schema-merge release test-examples;
           } // lib.mapAttrs' (name: value: lib.nameValuePair "schema-${name}" value) self.schemas.${system};
 
@@ -181,7 +205,7 @@
 
           generateJsonSchema = providerFn: pkgs.callPackage
             (import ./nix/terraform_schema.nix (providerFn terraformProviders))
-            { inherit (self.packages.${system}) schema-merge; };
+            { inherit (self.packages.${system}) terraform schema-merge; };
 
           generateSchema = providerFn: pkgs.callPackage
             ./nix/nickel_schema.nix
@@ -199,6 +223,7 @@
                     {
                       generateSchema = self.generateSchema.${system};
                       nickel = inputs.nickel.packages.${system}.nickel-lang-cli;
+                    inherit (self.packages.${system}) terraform;
                     }
                     args) ++ [
                   inputs.nickel.packages.${system}.default
@@ -219,7 +244,7 @@
             buildInputs = with pkgs; [
               cargo
               rustc
-              terraform
+              self.packages.terraform
               inputs.nickel.packages.${system}.default
               rust-analyzer
               rustfmt
