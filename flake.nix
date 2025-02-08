@@ -1,6 +1,6 @@
 {
   inputs = {
-    nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
+    nixpkgs.url = "github:kiaragrouwstra/nixpkgs/opentofu-fix";
     utils.url = "github:numtide/flake-utils";
     nickel = {
       url = "github:tweag/nickel";
